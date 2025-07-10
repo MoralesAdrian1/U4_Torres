@@ -1,11 +1,11 @@
 import pandas as pd
 import numpy as np
-
+import os
 # Establecer semilla para reproducibilidad
 np.random.seed(42)
 
 # Número de datos a generar
-num_samples = 10000
+num_samples = 20000
 
 # Funciones para generar datos por variable, usando pesos condicionales
 
@@ -74,6 +74,42 @@ def gen_horario_adecuado(asistencia):
         return np.random.choice([0, 1, 2], p=[0.7, 0.2, 0.1])
     return np.random.choice([0, 1, 2], p=[0.2, 0.4, 0.4])
 
+def gen_abandona(rendimiento, considera_desertar, apoyo, motivacion, asistencia):
+    """
+    Genera la variable objetivo 'abandona' con un peso realista basado en factores clave.
+    """
+    prob = 0.05  # probabilidad base baja
+
+    # Aumenta la probabilidad si el rendimiento es bajo
+    if rendimiento <= 2:
+        prob += 0.4
+    elif rendimiento == 3:
+        prob += 0.2
+
+    # Si considera desertar
+    if considera_desertar == 1:
+        prob += 0.3
+
+    # Poco apoyo familiar
+    if apoyo <= 1:
+        prob += 0.2
+
+    # Baja motivación
+    if motivacion <= 2:
+        prob += 0.2
+
+    # Baja asistencia
+    if asistencia < 60:
+        prob += 0.3
+    elif asistencia < 80:
+        prob += 0.1
+
+    # Limitar probabilidad entre 0 y 1
+    prob = min(prob, 0.95)
+
+    return np.random.choice([1, 0], p=[prob, 1 - prob])
+
+
 # Lista para almacenar los registros generados
 datos_generados = []
 
@@ -96,18 +132,22 @@ for _ in range(num_samples):
     vive = gen_vive_solo(edad)
     horario = gen_horario_adecuado(asistencia)
 
-    fila = [edad, sexo, grado, asistencia, apoyo, rendimiento, desertar,
+    abandona = gen_abandona(rendimiento, desertar, apoyo, motivacion, asistencia)
+
+    fila = [abandona, edad, sexo, grado, asistencia, apoyo, rendimiento, desertar,
             economia, tecnologia, extras, relacion, motivacion, traslado,
             trabaja, vive, horario]
     datos_generados.append(fila)
 
-# Crear DataFrame con nombres de columnas
-columnas = ['rango_edad','sexo','grado_escolar','frecuencia_asistencia','apoyo_familiar',
+# Crear DataFrame con nombres de columnas (abandona al inicio)
+columnas = ['abandona','rango_edad','sexo','grado_escolar','frecuencia_asistencia','apoyo_familiar',
             'rendimiento_academico','considera_desertar','situacion_economica','acceso_tecnologia',
             'actividades_extras','relacion_social','motivacion_estudios','tiempo_traslado',
             'trabaja_estudia','vive_solo','horario_adecuado']
 
 df_sintetico = pd.DataFrame(datos_generados, columns=columnas)
 
-# Guardar en CSV (opcional)
+# Guardar en CSV
 df_sintetico.to_csv("datos_Entrenamiento.csv", index=False)
+
+print("Archivo generado con columna 'abandona' incluida.")

@@ -92,7 +92,16 @@ df['vive_solo'] = df['vive_solo'].apply(lambda x: 0 if x == 'No' else 1)
 
 df['horario_adecuado'] = df['horario_adecuado'].apply(lambda x: 2 if x == 'No, me afecta bastante' else (1 if x == 'Más o menos' else 0))
 
-df.to_csv('dataLimpia.csv')
+# Generar nombres aleatorios
+nombres_aleatorios = ["Ana", "Luis", "María", "Carlos", "Sofía", "Juan", "Elena", "Pedro", 
+                      "Laura", "Miguel", "Isabel", "Jorge", "Marta", "Diego", "Lucía"]
+nombres = np.random.choice(nombres_aleatorios, size=len(df))
+
+# Insertar la columna al inicio
+df.insert(0, 'nombre', nombres)
+
+# Guardar en nuevo CSV
+df.to_csv('dataLimpia_conNombres.csv', index=False)
 
 
 

@@ -51,7 +51,7 @@ const SubirCSV = () => {
               {resultados.map((item, index) => (
                 <tr key={index}>
                   <td>{item.nombre}</td>
-                  <td>{(item.probabilidad * 100).toFixed(2)}%</td>
+                  <td>{(item.probabilidad_desercion * 100).toFixed(2)}%</td>
                 </tr>
               ))}
             </tbody>

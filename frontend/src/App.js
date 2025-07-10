@@ -9,7 +9,7 @@ function App() {
       <h1>Deserción Escolar - App Predictiva</h1>
       <EntrenarModelo />
       <hr />
-      <EstudianteForm />
+      {/* <EstudianteForm /> */}
       <hr/>
       <SubirCSV/>
     </div>
