@@ -110,4 +110,4 @@ columnas = ['rango_edad','sexo','grado_escolar','frecuencia_asistencia','apoyo_f
 df_sintetico = pd.DataFrame(datos_generados, columns=columnas)
 
 # Guardar en CSV (opcional)
-df_sintetico.to_csv("datos_sinteticos.csv", index=False)
+df_sintetico.to_csv("datos_Entrenamiento.csv", index=False)
