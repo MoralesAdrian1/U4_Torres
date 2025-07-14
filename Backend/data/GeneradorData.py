@@ -1,11 +1,17 @@
 import pandas as pd
 import numpy as np
 import os
+from faker import Faker
+import unicodedata
+import re
+
+fake = Faker('es_MX')
+
 # Establecer semilla para reproducibilidad
 np.random.seed(42)
 
 # Número de datos a generar
-num_samples = 20000
+num_samples = 1000
 
 # Funciones para generar datos por variable, usando pesos condicionales
 
@@ -145,8 +151,31 @@ columnas = ['abandona','rango_edad','sexo','grado_escolar','frecuencia_asistenci
             'actividades_extras','relacion_social','motivacion_estudios','tiempo_traslado',
             'trabaja_estudia','vive_solo','horario_adecuado']
 
+def limpiar_nombre(nombre):
+    # Elimina acentos
+    nombre = ''.join(
+        (c for c in unicodedata.normalize('NFD', nombre) if unicodedata.category(c) != 'Mn')
+    )
+    # Quitar puntos, espacios y caracteres no alfabéticos
+    nombre = re.sub(r'[^a-zA-Z]', '', nombre)
+    return nombre
+
+def generar_nombre(sexo):
+    if sexo == 0:
+        nombre = fake.first_name_female()
+    else:
+        nombre = fake.first_name_male()
+    nombre = limpiar_nombre(nombre)
+    return nombre
+
+
 df_sintetico = pd.DataFrame(datos_generados, columns=columnas)
 
+df_sintetico['nombre_completo'] = df_sintetico['sexo'].apply(generar_nombre)
+
+# Reordenar columnas si lo deseas (ej: nombre primero)
+columnas = ['nombre_completo'] + columnas
+df_sintetico = df_sintetico[columnas]
 # Guardar en CSV
 df_sintetico.to_csv("datos_Entrenamiento.csv", index=False)
 

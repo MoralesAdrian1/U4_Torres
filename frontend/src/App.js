@@ -1,6 +1,5 @@
 import './App.css';
 import EntrenarModelo from './components/EntrenarModelo';
-import EstudianteForm from './components/EstudianteForm';
 import SubirCSV from './components/SubirCsv';
 
 function App() {
@@ -9,8 +8,6 @@ function App() {
       <h1>Deserción Escolar - App Predictiva</h1>
       <EntrenarModelo />
       <hr />
-      {/* <EstudianteForm /> */}
-      <hr/>
       <SubirCSV/>
     </div>
   );

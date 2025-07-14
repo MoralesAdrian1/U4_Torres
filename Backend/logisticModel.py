@@ -53,11 +53,23 @@ def predecir_csv(df):
                     'acceso_tecnologia','actividades_extras','relacion_social',
                     'motivacion_estudios','tiempo_traslado','trabaja_estudia','vive_solo','horario_adecuado']
 
-    X = df_limpio[columnas_req]
-    proba = modelo.predict_proba(X)[:, 1]
+    # Guardar columna 'nombre' si existe
+    nombres = None
+    if 'nombre' in df_limpio.columns:
+        nombres = df_limpio['nombre']
+        df_limpio = df_limpio.drop(columns=['nombre'])
 
+    X = df_limpio[columnas_req]
+
+    proba = modelo.predict_proba(X)[:, 1]
     df_limpio['probabilidad_desercion'] = np.round(proba, 4)
 
-    return df_limpio[['nombre', 'probabilidad_desercion']].to_dict(orient="records")
+    # Adjuntar columna 'nombre' de nuevo solo para salida
+    if nombres is not None:
+        df_limpio['nombre'] = nombres
+        return df_limpio[['nombre', 'probabilidad_desercion']].to_dict(orient="records")
+    else:
+        return df_limpio[['probabilidad_desercion']].to_dict(orient="records")
+
 
 
