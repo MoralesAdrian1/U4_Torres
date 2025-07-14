@@ -10,7 +10,7 @@ modelo = None  # modelo global
 
 def entrenar_modelo():
     global modelo
-    data = pd.read_csv("C:\\Users\\adria\\Desktop\\utng\\noveno\\Torres\\U4\\IDE\\Backend\\data\\datos_Entrenamiento.csv")
+    data = pd.read_csv("C:\\Users\\fredw\\Desktop\\U4_Torres\\Backend\\data\\datos_Entrenamiento.csv")
 
     y = data['abandona']
     columnas_excluir = ['nombre', 'abandona'] if 'nombre' in data.columns else ['abandona']

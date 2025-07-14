@@ -6,7 +6,7 @@ const EntrenarModelo = () => {
 
   const entrenar = async () => {
     try {
-      const res = await axios.post('http://localhost:8000/entrenar');
+      const res = await axios.post("http://localhost:8000/entrenar-modelo-original");
       setAccuracy(res.data.accuracy);
     } catch (error) {
       alert('Error al entrenar: ' + error.message);
