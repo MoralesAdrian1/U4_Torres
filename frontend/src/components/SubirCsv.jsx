@@ -2,6 +2,19 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import Papa from 'papaparse';
 import PredecirCsv from './PredecirCsv';
+import { Bar, Pie } from 'react-chartjs-2';
+import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement } from 'chart.js';
+
+// Registrar componentes de Chart.js
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend,
+  ArcElement
+);
 
 const SubirCSV = () => {
   const [archivo, setArchivo] = useState(null);
@@ -15,9 +28,14 @@ const SubirCSV = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [formatoDescarga, setFormatoDescarga] = useState('excel');
-  const [resultados2,setResultados2] = useState([]);
+  const [resultados2, setResultados2] = useState([]);
   const [entrenado, setEntrenado] = useState(false);  
-  const [predicho, setPredicho] = useState(false);  
+  const [predicho, setPredicho] = useState(false);
+  const [stats, setStats] = useState({
+    genero: {},
+    edad: {},
+    nivelEducativo: {}
+  });
 
   const handleFileChange = async (e) => {
     const file = e.target.files[0];
@@ -38,6 +56,36 @@ const SubirCSV = () => {
           setArchivo(file);
           setDatosPreview(results.data.slice(0, 5));
           setColumnas(results.meta.fields);
+          
+          // Calcular estadísticas
+          const data = results.data;
+          const generoStats = {};
+          const edadStats = {};
+          const nivelStats = {};
+          
+          data.forEach(row => {
+            // Estadísticas por género (asumiendo columna 'genero')
+            if (row.sexo) {
+              generoStats[row.sexo] = (generoStats[row.sexo] || 0) + 1;
+            }
+            
+            // Estadísticas por edad (asumiendo columna 'edad')
+            if (row.rango_edad) {
+              edadStats[row.rango_edad] = (edadStats[row.rango_edad] || 0) + 1;
+            }
+            
+            // Estadísticas por nivel educativo (asumiendo columna 'nivel_educativo')
+            if (row.grado_escolar) {
+              nivelStats[row.grado_escolar] = (nivelStats[row.grado_escolar] || 0) + 1;
+            }
+          });
+          
+          setStats({
+            genero: generoStats,
+            edad: edadStats,
+            nivelEducativo: nivelStats
+          });
+          
           setPaso(2);
           setLoading(false);
         },
@@ -52,40 +100,34 @@ const SubirCSV = () => {
     }
   };
 
-// Elimina la definición y uso del estado 'features':
-// const [features, setFeatures] = useState([]);
+  const handleConfigurar = async () => {
+    if (!targetCol) {
+      setError("Debes seleccionar una columna objetivo");
+      return;
+    }
 
-// Modifica handleConfigurar para enviar todas las columnas excepto la targetCol como features:
-const handleConfigurar = async () => {
-  if (!targetCol) {
-    setError("Debes seleccionar una columna objetivo");
-    return;
-  }
+    setLoading(true);
+    setError(null);
 
-  setLoading(true);
-  setError(null);
+    try {
+      const allFeatures = columnas.filter(col => col !== targetCol);
 
-  try {
-    // Aquí construimos todas las features automáticamente:
-    const allFeatures = columnas.filter(col => col !== targetCol);
+      const configRes = await axios.post('http://localhost:8000/configurar-modelo', {
+        target_col: targetCol,
+        features: allFeatures,
+      }, {
+        headers: { 'Content-Type': 'application/json' }
+      });
 
-    const configRes = await axios.post('http://localhost:8000/configurar-modelo', {
-      target_col: targetCol,
-      features: allFeatures,
-    }, {
-      headers: { 'Content-Type': 'application/json' }
-    });
-
-    const trainRes = await axios.post('http://localhost:8000/entrenar-modelo');
-    setAccuracy(trainRes.data.accuracy);
-    setEntrenado(true);
-    await handlePredict();
-  } catch (err) {
-    setError(err.response?.data?.detail || err.message);
-    setLoading(false);
-  }
-};
-
+      const trainRes = await axios.post('http://localhost:8000/entrenar-modelo');
+      setAccuracy(trainRes.data.accuracy);
+      setEntrenado(true);
+      await handlePredict();
+    } catch (err) {
+      setError(err.response?.data?.detail || err.message);
+      setLoading(false);
+    }
+  };
 
   const handlePredict = async () => {
     if (!archivo) return;
@@ -136,6 +178,119 @@ const handleConfigurar = async () => {
     setAccuracy(null);
     setPaso(1);
     setError(null);
+    setStats({
+      genero: {},
+      edad: {},
+      nivelEducativo: {}
+    });
+  };
+
+  const DataStatsCharts = () => {
+    // Función para mapear valores numéricos a etiquetas descriptivas
+    const mapLabels = (originalLabels, type) => {
+      return originalLabels.map(label => {
+        if (type === 'genero') {
+          return label === '1' ? 'Mujeres' : label === '0' ? 'Hombres' : label;
+        } else if (type === 'nivelEducativo') {
+          return label === '1' ? 'Universitarios' : label === '0' ? 'Preparatoria' : label;
+        }
+        return label;
+      });
+    };
+
+    const generoData = {
+      labels: mapLabels(Object.keys(stats.genero), 'genero'),
+      datasets: [{
+        label: 'Distribución por Género',
+        data: Object.values(stats.genero),
+        backgroundColor: [
+          'rgba(54, 162, 235, 0.7)',
+          'rgba(255, 99, 132, 0.7)',
+          'rgba(255, 206, 86, 0.7)'
+        ],
+        borderColor: [
+          'rgba(54, 162, 235, 1)',
+          'rgba(255, 99, 132, 1)',
+          'rgba(255, 206, 86, 1)'
+        ],
+        borderWidth: 1
+      }]
+    };
+
+    const edadData = {
+      labels: Object.keys(stats.edad),
+      datasets: [{
+        label: 'Distribución por Edad',
+        data: Object.values(stats.edad),
+        backgroundColor: 'rgba(75, 192, 192, 0.7)',
+        borderColor: 'rgba(75, 192, 192, 1)',
+        borderWidth: 1
+      }]
+    };
+
+    const nivelData = {
+      labels: mapLabels(Object.keys(stats.nivelEducativo), 'nivelEducativo'),
+      datasets: [{
+        label: 'Distribución por Nivel Educativo',
+        data: Object.values(stats.nivelEducativo),
+        backgroundColor: [
+          'rgba(153, 102, 255, 0.7)',
+          'rgba(255, 159, 64, 0.7)',
+          'rgba(201, 203, 207, 0.7)'
+        ],
+        borderColor: [
+          'rgba(153, 102, 255, 1)',
+          'rgba(255, 159, 64, 1)',
+          'rgba(201, 203, 207, 1)'
+        ],
+        borderWidth: 1
+      }]
+    };
+
+    return (
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))',
+        gap: '30px',
+        marginTop: '40px'
+      }}>
+        <div style={{
+          background: 'white',
+          borderRadius: '15px',
+          padding: '20px',
+          boxShadow: '0 5px 15px rgba(0,0,0,0.1)'
+        }}>
+          <h3 style={{ textAlign: 'center', marginBottom: '15px' }}>Distribución por Género</h3>
+          <Pie data={generoData} />
+        </div>
+        
+        <div style={{
+          background: 'white',
+          borderRadius: '15px',
+          padding: '20px',
+          boxShadow: '0 5px 15px rgba(0,0,0,0.1)'
+        }}>
+          <h3 style={{ textAlign: 'center', marginBottom: '15px' }}>Distribución por Edad</h3>
+          <Bar data={edadData} options={{
+            scales: {
+              y: {
+                beginAtZero: true
+              }
+            }
+          }} />
+        </div>
+        
+        <div style={{
+          background: 'white',
+          borderRadius: '15px',
+          padding: '20px',
+          boxShadow: '0 5px 15px rgba(0,0,0,0.1)'
+        }}>
+          <h3 style={{ textAlign: 'center', marginBottom: '15px' }}>Distribución por Nivel Educativo</h3>
+          <Pie data={nivelData} />
+        </div>
+      </div>
+    );
   };
 
   const LoadingSpinner = () => (
@@ -551,6 +706,29 @@ const handleConfigurar = async () => {
                 </div>
               </div>
               
+              {/* Estadísticas del Dataset */}
+              <div style={{
+                background: 'white',
+                borderRadius: '20px',
+                padding: '30px',
+                boxShadow: '0 15px 35px rgba(0, 0, 0, 0.08)',
+                border: '1px solid rgba(0, 0, 0, 0.05)'
+              }}>
+                <h3 style={{
+                  color: '#2c3e50',
+                  fontSize: '20px',
+                  fontWeight: '600',
+                  marginBottom: '20px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px'
+                }}>
+                  📊 Estadísticas del Dataset
+                </h3>
+                
+                <DataStatsCharts />
+              </div>
+              
               {/* Target Column Selection */}
               <div style={{
                 background: 'white',
@@ -601,7 +779,6 @@ const handleConfigurar = async () => {
                   ))}
                 </select>
               </div>
-              
               
               {/* Download Section */}
               <div style={{
@@ -756,12 +933,9 @@ const handleConfigurar = async () => {
           
           {paso === 3 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
-              {/* Results Header */}
               {entrenado && (
-              <PredecirCsv accuracy = {accuracy}/>
-            )}
-
-              
+                <PredecirCsv accuracy={accuracy} />
+              )}
             </div>
           )}
         </div>
