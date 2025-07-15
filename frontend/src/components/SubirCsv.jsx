@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 import Papa from 'papaparse';
+import PredecirCsv from './PredecirCsv';
 
 const SubirCSV = () => {
   const [archivo, setArchivo] = useState(null);
@@ -15,6 +16,8 @@ const SubirCSV = () => {
   const [error, setError] = useState(null);
   const [formatoDescarga, setFormatoDescarga] = useState('excel');
   const [resultados2,setResultados2] = useState([]);
+  const [entrenado, setEntrenado] = useState(false);  
+  const [predicho, setPredicho] = useState(false);  
 
   const handleFileChange = async (e) => {
     const file = e.target.files[0];
@@ -49,34 +52,40 @@ const SubirCSV = () => {
     }
   };
 
-  const handleConfigurar = async () => {
-    if (!targetCol || features.length === 0) {
-      setError("Debes seleccionar una columna objetivo y al menos una feature");
-      return;
-    }
-    
-    setLoading(true);
-    setError(null);
-    
-    try {
-      const configRes = await axios.post('http://localhost:8000/configurar-modelo', {
-        target_col: targetCol,
-        features: features
-      }, {
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      const trainRes = await axios.post('http://localhost:8000/entrenar-modelo');
-      setAccuracy(trainRes.data.accuracy);
-      
-      await handlePredict();
-    } catch (err) {
-      setError(err.response?.data?.detail || err.message);
-      setLoading(false);
-    }
-  };
+// Elimina la definición y uso del estado 'features':
+// const [features, setFeatures] = useState([]);
+
+// Modifica handleConfigurar para enviar todas las columnas excepto la targetCol como features:
+const handleConfigurar = async () => {
+  if (!targetCol) {
+    setError("Debes seleccionar una columna objetivo");
+    return;
+  }
+
+  setLoading(true);
+  setError(null);
+
+  try {
+    // Aquí construimos todas las features automáticamente:
+    const allFeatures = columnas.filter(col => col !== targetCol);
+
+    const configRes = await axios.post('http://localhost:8000/configurar-modelo', {
+      target_col: targetCol,
+      features: allFeatures,
+    }, {
+      headers: { 'Content-Type': 'application/json' }
+    });
+
+    const trainRes = await axios.post('http://localhost:8000/entrenar-modelo');
+    setAccuracy(trainRes.data.accuracy);
+    setEntrenado(true);
+    await handlePredict();
+  } catch (err) {
+    setError(err.response?.data?.detail || err.message);
+    setLoading(false);
+  }
+};
+
 
   const handlePredict = async () => {
     if (!archivo) return;
@@ -593,91 +602,6 @@ const SubirCSV = () => {
                 </select>
               </div>
               
-              {/* Features Selection */}
-              <div style={{
-                background: 'white',
-                borderRadius: '20px',
-                padding: '30px',
-                boxShadow: '0 15px 35px rgba(0, 0, 0, 0.08)',
-                border: '1px solid rgba(0, 0, 0, 0.05)'
-              }}>
-                <h3 style={{
-                  color: '#2c3e50',
-                  fontSize: '20px',
-                  fontWeight: '600',
-                  marginBottom: '10px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '10px'
-                }}>
-                  🔍 Variables Predictoras
-                </h3>
-                <p style={{
-                  color: '#6c757d',
-                  fontSize: '14px',
-                  marginBottom: '25px',
-                  lineHeight: '1.6'
-                }}>
-                  Selecciona las variables que consideras relevantes para predecir el abandono escolar
-                </p>
-                
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))',
-                  gap: '15px'
-                }}>
-                  {columnas
-                    .filter(col => col !== targetCol)
-                    .map(col => (
-                      <label
-                        key={`feature-${col}`}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          padding: '15px 20px',
-                          background: features.includes(col) 
-                            ? 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)'
-                            : 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)',
-                          color: features.includes(col) ? 'white' : '#495057',
-                          borderRadius: '12px',
-                          cursor: 'pointer',
-                          transition: 'all 0.3s ease',
-                          border: '2px solid ' + (features.includes(col) ? 'rgba(255,255,255,0.3)' : 'transparent'),
-                          boxShadow: features.includes(col) 
-                            ? '0 10px 25px rgba(79, 172, 254, 0.3)'
-                            : '0 5px 15px rgba(0, 0, 0, 0.08)',
-                          fontWeight: '500'
-                        }}
-                        onMouseOver={(e) => {
-                          if (!features.includes(col)) {
-                            e.currentTarget.style.background = 'linear-gradient(135deg, #e9ecef 0%, #dee2e6 100%)';
-                            e.currentTarget.style.transform = 'translateY(-2px)';
-                          }
-                        }}
-                        onMouseOut={(e) => {
-                          if (!features.includes(col)) {
-                            e.currentTarget.style.background = 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)';
-                            e.currentTarget.style.transform = 'translateY(0)';
-                          }
-                        }}>
-                        <input
-                          type="checkbox"
-                          checked={features.includes(col)}
-                          onChange={() => toggleFeature(col)}
-                          disabled={loading}
-                          style={{
-                            width: '18px',
-                            height: '18px',
-                            marginRight: '12px',
-                            cursor: 'pointer',
-                            accentColor: features.includes(col) ? '#fff' : '#4facfe'
-                          }}
-                        />
-                        <span style={{ fontSize: '14px' }}>{col}</span>
-                      </label>
-                    ))}
-                </div>
-              </div>
               
               {/* Download Section */}
               <div style={{
@@ -724,10 +648,10 @@ const SubirCSV = () => {
                   
                   <button
                     onClick={() => handleDescargarDatos('entrenamiento')}
-                    disabled={!targetCol || features.length === 0 || loading}
+                    disabled={!targetCol || loading}
                     style={{
                       padding: '12px 25px',
-                      background: (!targetCol || features.length === 0) 
+                      background: (!targetCol ) 
                         ? 'linear-gradient(135deg, #ced4da 0%, #adb5bd 100%)'
                         : 'linear-gradient(135deg, #28a745 0%, #20c997 100%)',
                       color: 'white',
@@ -735,20 +659,20 @@ const SubirCSV = () => {
                       borderRadius: '8px',
                       fontSize: '14px',
                       fontWeight: '600',
-                      cursor: (!targetCol || features.length === 0) ? 'not-allowed' : 'pointer',
-                      boxShadow: (!targetCol || features.length === 0) 
+                      cursor: (!targetCol ) ? 'not-allowed' : 'pointer',
+                      boxShadow: (!targetCol) 
                         ? 'none'
                         : '0 8px 20px rgba(40, 167, 69, 0.3)',
                       transition: 'all 0.3s ease'
                     }}
                     onMouseOver={(e) => {
-                      if (targetCol && features.length > 0) {
+                      if (targetCol ) {
                         e.currentTarget.style.transform = 'translateY(-2px)';
                         e.currentTarget.style.boxShadow = '0 12px 30px rgba(40, 167, 69, 0.4)';
                       }
                     }}
                     onMouseOut={(e) => {
-                      if (targetCol && features.length > 0) {
+                      if (targetCol ) {
                         e.currentTarget.style.transform = 'translateY(0)';
                         e.currentTarget.style.boxShadow = '0 8px 20px rgba(40, 167, 69, 0.3)';
                       }
@@ -793,10 +717,10 @@ const SubirCSV = () => {
                 
                 <button
                   onClick={handleConfigurar}
-                  disabled={!targetCol || features.length === 0 || loading}
+                  disabled={!targetCol  || loading}
                   style={{
                     padding: '15px 40px',
-                    background: (!targetCol || features.length === 0) 
+                    background: (!targetCol === 0) 
                       ? 'linear-gradient(135deg, #ced4da 0%, #adb5bd 100%)'
                       : 'linear-gradient(135deg, #ff6b6b 0%, #ffa726 100%)',
                     color: 'white',
@@ -804,8 +728,8 @@ const SubirCSV = () => {
                     borderRadius: '12px',
                     fontSize: '16px',
                     fontWeight: '700',
-                    cursor: (!targetCol || features.length === 0) ? 'not-allowed' : 'pointer',
-                    boxShadow: (!targetCol || features.length === 0) 
+                    cursor: (!targetCol ) ? 'not-allowed' : 'pointer',
+                    boxShadow: (!targetCol ) 
                       ? 'none'
                       : '0 15px 35px rgba(255, 107, 107, 0.4)',
                     transition: 'all 0.3s ease',
@@ -813,13 +737,13 @@ const SubirCSV = () => {
                     overflow: 'hidden'
                   }}
                   onMouseOver={(e) => {
-                    if (targetCol && features.length > 0) {
+                    if (targetCol ) {
                       e.currentTarget.style.transform = 'translateY(-3px)';
                       e.currentTarget.style.boxShadow = '0 20px 40px rgba(255, 107, 107, 0.5)';
                     }
                   }}
                   onMouseOut={(e) => {
-                    if (targetCol && features.length > 0) {
+                    if (targetCol ) {
                       e.currentTarget.style.transform = 'translateY(0)';
                       e.currentTarget.style.boxShadow = '0 15px 35px rgba(255, 107, 107, 0.4)';
                     }
@@ -833,417 +757,11 @@ const SubirCSV = () => {
           {paso === 3 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
               {/* Results Header */}
-              <div style={{
-                background: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
-                padding: '40px',
-                borderRadius: '20px',
-                boxShadow: '0 20px 40px rgba(67, 233, 123, 0.3)',
-                textAlign: 'center',
-                position: 'relative',
-                overflow: 'hidden'
-              }}>
-                <div style={{
-                  position: 'absolute',
-                  top: '-50%',
-                  left: '-50%',
-                  width: '200%',
-                  height: '200%',
-                  background: 'radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%)',
-                  animation: 'float 8s ease-in-out infinite'
-                }}></div>
-                
-                <h2 style={{
-                  color: 'white',
-                  fontSize: '28px',
-                  fontWeight: '700',
-                  margin: '0 0 15px 0',
-                  textShadow: '0 4px 8px rgba(0,0,0,0.2)',
-                  position: 'relative',
-                  zIndex: 1
-                }}>
-                  🎯 Resultados del Análisis Predictivo
-                </h2>
-                
-                {accuracy && (
-                  <div style={{
-                    background: 'rgba(255, 255, 255, 0.2)',
-                    borderRadius: '15px',
-                    padding: '20px',
-                    margin: '20px 0',
-                    border: '1px solid rgba(255, 255, 255, 0.3)',
-                    position: 'relative',
-                    zIndex: 1
-                  }}>
-                    <div style={{
-                      fontSize: '48px',
-                      fontWeight: '800',
-                      color: 'white',
-                      textShadow: '0 2px 4px rgba(0,0,0,0.3)',
-                      marginBottom: '10px'
-                    }}>
-                      {(accuracy * 100).toFixed(1)}%
-                    </div>
-                    <div style={{
-                      fontSize: '16px',
-                      color: 'rgba(255, 255, 255, 0.9)',
-                      fontWeight: '500'
-                    }}>
-                      Precisión del Modelo de IA
-                    </div>
-                  </div>
-                )}
-                
-                <p style={{
-                  color: 'rgba(255, 255, 255, 0.9)',
-                  fontSize: '16px',
-                  margin: '0',
-                  position: 'relative',
-                  zIndex: 1
-                }}>
-                  Estudiantes identificados con mayor riesgo de abandono escolar
-                </p>
-              </div>
+              {entrenado && (
+              <PredecirCsv accuracy = {accuracy}/>
+            )}
+
               
-              {/* Results Table */}
-              <div style={{
-                background: 'white',
-                borderRadius: '20px',
-                boxShadow: '0 15px 35px rgba(0, 0, 0, 0.08)',
-                overflow: 'hidden',
-                border: '1px solid rgba(0, 0, 0, 0.05)'
-              }}>
-                <div style={{
-                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                  padding: '25px',
-                  color: 'white'
-                }}>
-                  <h3 style={{
-                    margin: '0',
-                    fontSize: '20px',
-                    fontWeight: '600',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '10px'
-                  }}>
-                    📊 Ranking de Riesgo por Estudiante
-                  </h3>
-                </div>
-                
-                <div style={{
-                  maxHeight: '600px',
-                  overflow: 'auto',
-                  background: '#fafafa'
-                }}>
-                  <table style={{
-                    width: '100%',
-                    borderCollapse: 'collapse',
-                    fontSize: '14px'
-                  }}>
-                    <thead>
-                      <tr style={{
-                        background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)',
-                        position: 'sticky',
-                        top: 0,
-                        zIndex: 1
-                      }}>
-                        <th style={{
-                          padding: '20px 15px',
-                          textAlign: 'left',
-                          fontWeight: '600',
-                          color: '#2c3e50',
-                          borderBottom: '2px solid #dee2e6',
-                          fontSize: '16px'
-                        }}>
-                          👤 Estudiante
-                        </th>
-                        <th style={{
-                          padding: '20px 15px',
-                          textAlign: 'center',
-                          fontWeight: '600',
-                          color: '#2c3e50',
-                          borderBottom: '2px solid #dee2e6',
-                          fontSize: '16px'
-                        }}>
-                          📈 Probabilidad de Abandono
-                        </th>
-                        <th style={{
-                          padding: '20px 15px',
-                          textAlign: 'center',
-                          fontWeight: '600',
-                          color: '#2c3e50',
-                          borderBottom: '2px solid #dee2e6',
-                          fontSize: '16px'
-                        }}>
-                          ⚠️ Nivel de Riesgo
-                        </th>
-                        <th style={{
-                          padding: '20px 15px',
-                          textAlign: 'center',
-                          fontWeight: '600',
-                          color: '#2c3e50',
-                          borderBottom: '2px solid #dee2e6',
-                          fontSize: '16px'
-                        }}>
-                          📈 Probabilidad de Abandono(heuristico)
-                        </th>
-                        <th style={{
-                          padding: '20px 15px',
-                          textAlign: 'center',
-                          fontWeight: '600',
-                          color: '#2c3e50',
-                          borderBottom: '2px solid #dee2e6',
-                          fontSize: '16px'
-                        }}>
-                          ⚠️ Nivel de Riesgo(heuristico) 
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-  {resultados.map((item, index) => {
-    const item2 = resultados2[index] || {}; // el correspondiente item de resultados2
-    
-    // Riesgo para probabilidad de abandono (modelo logístico)
-    const riesgo = item.probabilidad_desercion > 0.7 ? 'Alto' :
-                   item.probabilidad_desercion > 0.4 ? 'Medio' : 'Bajo';
-    const riesgoColor = item.probabilidad_desercion > 0.7 ? '#e74c3c' :
-                        item.probabilidad_desercion > 0.4 ? '#f39c12' : '#27ae60';
-    const riesgoIcon = item.probabilidad_desercion > 0.7 ? '🔴' :
-                       item.probabilidad_desercion > 0.4 ? '🟡' : '🟢';
-
-    // Riesgo para modelo reglas (de resultados2)
-    const riesgo2 = item2.modelo_reglas > 0.7 ? 'Alto' :
-                    item2.modelo_reglas > 0.4 ? 'Medio' : 'Bajo';
-    const riesgoColor2 = item2.modelo_reglas > 0.7 ? '#e74c3c' :
-                        item2.modelo_reglas > 0.4 ? '#f39c12' : '#27ae60';
-    const riesgoIcon2 = item2.modelo_reglas > 0.7 ? '🔴' :
-                       item2.modelo_reglas > 0.4 ? '🟡' : '🟢';
-
-    return (
-      <tr
-        key={index}
-        style={{
-          borderBottom: '1px solid #dee2e6',
-          transition: 'all 0.3s ease',
-          background: index % 2 === 0 ? 'white' : '#f8f9fa'
-        }}
-        onMouseOver={e => {
-          e.currentTarget.style.backgroundColor = '#e3f2fd';
-          e.currentTarget.style.transform = 'scale(1.01)';
-        }}
-        onMouseOut={e => {
-          e.currentTarget.style.backgroundColor = index % 2 === 0 ? 'white' : '#f8f9fa';
-          e.currentTarget.style.transform = 'scale(1)';
-        }}
-      >
-        <td style={{
-          padding: '20px 15px',
-          color: '#2c3e50',
-          fontWeight: '500',
-          fontSize: '15px'
-        }}>
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '10px'
-          }}>
-            <div style={{
-              width: '32px',
-              height: '32px',
-              borderRadius: '50%',
-              background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'white',
-              fontSize: '12px',
-              fontWeight: '600'
-            }}>
-              {index + 1}
-            </div>
-            {item.nombre_completo || `Estudiante ${index + 1}`}
-          </div>
-        </td>
-
-        {/* Probabilidad modelo logístico */}
-        <td style={{ padding: '20px 15px', textAlign: 'center' }}>
-          <div style={{
-            display: 'inline-block',
-            background: `linear-gradient(135deg, ${riesgoColor}15 0%, ${riesgoColor}25 100%)`,
-            padding: '8px 16px',
-            borderRadius: '20px',
-            border: `2px solid ${riesgoColor}30`,
-            color: riesgoColor,
-            fontSize: '16px',
-            fontWeight: '700'
-          }}>
-            {(item.probabilidad_desercion * 100).toFixed(1)}%
-          </div>
-        </td>
-
-        {/* Riesgo modelo logístico */}
-        <td style={{ padding: '20px 15px', textAlign: 'center' }}>
-          <div style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '8px',
-            background: `linear-gradient(135deg, ${riesgoColor}15 0%, ${riesgoColor}25 100%)`,
-            padding: '8px 16px',
-            borderRadius: '20px',
-            border: `2px solid ${riesgoColor}30`,
-            color: riesgoColor,
-            fontSize: '14px',
-            fontWeight: '600'
-          }}>
-            <span style={{ fontSize: '16px' }}>{riesgoIcon}</span>
-            {riesgo}
-          </div>
-        </td>
-
-        {/* Probabilidad modelo reglas */}
-        <td style={{ padding: '20px 15px', textAlign: 'center' }}>
-          <div style={{
-            display: 'inline-block',
-            background: `linear-gradient(135deg, ${riesgoColor2}15 0%, ${riesgoColor2}25 100%)`,
-            padding: '8px 16px',
-            borderRadius: '20px',
-            border: `2px solid ${riesgoColor2}30`,
-            color: riesgoColor2,
-            fontSize: '16px',
-            fontWeight: '700'
-          }}>
-            {item2.modelo_reglas !== undefined ? (item2.modelo_reglas * 100).toFixed(1) + '%' : '-'}
-          </div>
-        </td>
-
-        {/* Riesgo modelo reglas */}
-        <td style={{ padding: '20px 15px', textAlign: 'center' }}>
-          <div style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '8px',
-            background: `linear-gradient(135deg, ${riesgoColor2}15 0%, ${riesgoColor2}25 100%)`,
-            padding: '8px 16px',
-            borderRadius: '20px',
-            border: `2px solid ${riesgoColor2}30`,
-            color: riesgoColor2,
-            fontSize: '14px',
-            fontWeight: '600'
-          }}>
-            <span style={{ fontSize: '16px' }}>{riesgoIcon2}</span>
-            {riesgo2}
-          </div>
-        </td>
-      </tr>
-    );
-  })}
-</tbody>
-
-                  </table>
-                </div>
-              </div>
-              
-              {/* Download Results */}
-              <div style={{
-                background: 'white',
-                borderRadius: '20px',
-                padding: '30px',
-                boxShadow: '0 15px 35px rgba(0, 0, 0, 0.08)',
-                border: '1px solid rgba(0, 0, 0, 0.05)'
-              }}>
-                <h3 style={{
-                  color: '#2c3e50',
-                  fontSize: '20px',
-                  fontWeight: '600',
-                  marginBottom: '20px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '10px'
-                }}>
-                  💾 Descargar Resultados
-                </h3>
-                
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '20px',
-                  flexWrap: 'wrap'
-                }}>
-                  <select
-                    value={formatoDescarga}
-                    onChange={(e) => setFormatoDescarga(e.target.value)}
-                    style={{
-                      padding: '12px 15px',
-                      fontSize: '14px',
-                      borderRadius: '8px',
-                      border: '2px solid #e9ecef',
-                      background: 'white',
-                      color: '#495057',
-                      cursor: 'pointer',
-                      minWidth: '140px'
-                    }}>
-                    <option value="excel">Excel (.xlsx)</option>
-                    <option value="csv">CSV (.csv)</option>
-                  </select>
-                  
-                  <button
-                    onClick={() => handleDescargarDatos('predicciones')}
-                    style={{
-                      padding: '12px 25px',
-                      background: 'linear-gradient(135deg, #28a745 0%, #20c997 100%)',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '8px',
-                      fontSize: '14px',
-                      fontWeight: '600',
-                      cursor: 'pointer',
-                      boxShadow: '0 8px 20px rgba(40, 167, 69, 0.3)',
-                      transition: 'all 0.3s ease'
-                    }}
-                    onMouseOver={(e) => {
-                      e.currentTarget.style.transform = 'translateY(-2px)';
-                      e.currentTarget.style.boxShadow = '0 12px 30px rgba(40, 167, 69, 0.4)';
-                    }}
-                    onMouseOut={(e) => {
-                      e.currentTarget.style.transform = 'translateY(0)';
-                      e.currentTarget.style.boxShadow = '0 8px 20px rgba(40, 167, 69, 0.3)';
-                    }}>
-                    📊 Descargar Resultados de Predicción
-                  </button>
-                </div>
-              </div>
-              
-              {/* New Analysis Button */}
-              <div style={{
-                textAlign: 'center',
-                marginTop: '30px'
-              }}>
-                <button
-                  onClick={resetProcess}
-                  style={{
-                    padding: '18px 40px',
-                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '25px',
-                    fontSize: '18px',
-                    fontWeight: '700',
-                    cursor: 'pointer',
-                    boxShadow: '0 15px 35px rgba(102, 126, 234, 0.4)',
-                    transition: 'all 0.3s ease',
-                    position: 'relative',
-                    overflow: 'hidden'
-                  }}
-                  onMouseOver={(e) => {
-                    e.currentTarget.style.transform = 'translateY(-3px)';
-                    e.currentTarget.style.boxShadow = '0 20px 40px rgba(102, 126, 234, 0.5)';
-                  }}
-                  onMouseOut={(e) => {
-                    e.currentTarget.style.transform = 'translateY(0)';
-                    e.currentTarget.style.boxShadow = '0 15px 35px rgba(102, 126, 234, 0.4)';
-                  }}>
-                  🔄 Analizar Nuevo Grupo de Estudiantes
-                </button>
-              </div>
             </div>
           )}
         </div>
